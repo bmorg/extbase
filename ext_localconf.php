@@ -8,11 +8,28 @@ require_once(t3lib_extMgm::extPath('extbase') . 'Classes/Utility/Extension.php')
 	// We do not set frontend and backend: The cache manager uses t3lib_cache_frontend_VariableFrontend
 	// and t3lib_cache_backend_DbBackend by default if not set otherwise.
 	// This default is perfectly fine for our reflection and object cache.
-if (!is_array($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['extbase_reflection'])) {
-	$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['extbase_reflection'] = array();
+if (!is_array($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['cache_extbase_reflection'])) {
+	// Reflection cache:
+	$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['cache_extbase_reflection'] = array(
+		'frontend' => 't3lib_cache_frontend_VariableFrontend',
+		'backend' => 't3lib_cache_backend_DbBackend',
+		'options' => array(
+			'cacheTable' => 'tx_extbase_cache_reflection',
+			'tagsTable' => 'tx_extbase_cache_reflection_tags',
+		),
+	);
 }
-if (!is_array($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['extbase_object'])) {
-	$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['extbase_object'] = array();
+if (!is_array($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['cache_extbase_object'])) {
+	// use own cache tables
+	// Object container cache:
+	$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['cache_extbase_object'] = array(
+		'frontend' => 't3lib_cache_frontend_VariableFrontend',
+		'backend' => 't3lib_cache_backend_DbBackend',
+		'options' => array(
+			'cacheTable' => 'tx_extbase_cache_object',
+			'tagsTable' => 'tx_extbase_cache_object_tags',
+		),
+	);
 }
 
 // We need to set the default implementation for Storage Backend & Query Settings
