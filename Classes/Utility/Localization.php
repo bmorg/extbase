@@ -182,14 +182,6 @@ class Tx_Extbase_Utility_Localization {
 				self::$languageKey = $GLOBALS['TSFE']->config['config']['language'];
 				if (isset($GLOBALS['TSFE']->config['config']['language_alt'])) {
 					self::$alternativeLanguageKeys[] = $GLOBALS['TSFE']->config['config']['language_alt'];
-				} else {
-					/** @var $locales t3lib_l10n_Locales */
-					$locales = t3lib_div::makeInstance('t3lib_l10n_Locales');
-					if (in_array(self::$languageKey, $locales->getLocales())) {
-						foreach ($locales->getLocaleDependencies(self::$languageKey) as $language) {
-							self::$alternativeLanguageKeys[] = $language;
-						}
-					}
 				}
 			}
 		} elseif (strlen($GLOBALS['BE_USER']->uc['lang']) > 0) {
