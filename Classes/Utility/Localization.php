@@ -61,9 +61,9 @@ class Tx_Extbase_Utility_Localization {
 	/**
 	 * Pointer to alternative fall-back language to use
 	 *
-	 * @var array
+	 * @var string
 	 **/
-	protected static $alternativeLanguageKeys = array();
+	protected static $alternativeLanguageKey = '';
 
 	/**
 	 * Returns the localized label of the LOCAL_LANG key, $key.
@@ -71,7 +71,7 @@ class Tx_Extbase_Utility_Localization {
 	 * @param string $key The key from the LOCAL_LANG array for which to return the value.
 	 * @param string $extensionName The name of the extension
 	 * @param array $arguments the arguments of the extension, being passed over to vsprintf
-	 * @return string|NULL The value from LOCAL_LANG or NULL if no translation was found.
+	 * @return string The value from LOCAL_LANG or NULL if no translation was found.
 	 * @author Christopher Hlubek <hlubek@networkteam.com>
 	 * @author Bastian Waidelich <bastian@typo3.org>
 	 * @author Sebastian Kurfuerst <sebastian@typo3.org>
@@ -79,35 +79,23 @@ class Tx_Extbase_Utility_Localization {
 	 * @todo: If vsprintf gets a malformed string, it returns FALSE! Should we throw an exception there?
 	 */
 	static public function translate($key, $extensionName, $arguments = NULL) {
-		$value = NULL;
 		if (t3lib_div::isFirstPartOfStr($key, 'LLL:')) {
 			$value = self::translateFileReference($key);
 		} else {
 			self::initializeLocalization($extensionName);
-				// The "from" charset of csConv() is only set for strings from TypoScript via _LOCAL_LANG
-			if (!empty(self::$LOCAL_LANG[$extensionName][self::$languageKey][$key][0]['target'])) {
-					// Local language translation for key exists
-				$value = self::$LOCAL_LANG[$extensionName][self::$languageKey][$key][0]['target'];
-				if (!empty(self::$LOCAL_LANG_charset[$extensionName][self::$languageKey][$key])) {
+			// The "from" charset of csConv() is only set for strings from TypoScript via _LOCAL_LANG
+			if (isset(self::$LOCAL_LANG[$extensionName][self::$languageKey][$key])) {
+				$value = self::$LOCAL_LANG[$extensionName][self::$languageKey][$key];
+				if (isset(self::$LOCAL_LANG_charset[$extensionName][self::$languageKey][$key])) {
 					$value = self::convertCharset($value, self::$LOCAL_LANG_charset[$extensionName][self::$languageKey][$key]);
 				}
-			} elseif (count(self::$alternativeLanguageKeys)) {
-				$languages = array_reverse(self::$alternativeLanguageKeys);
-				foreach ($languages as $language) {
-					if (!empty(self::$LOCAL_LANG[$extensionName][$language][$key][0]['target'])) {
-							// Alternative language translation for key exists
-						$value = self::$LOCAL_LANG[$extensionName][$language][$key][0]['target'];
-						if (!empty(self::$LOCAL_LANG_charset[$extensionName][$language][$key])) {
-							$value = self::convertCharset($value, self::$LOCAL_LANG_charset[$extensionName][$language][$key]);
-						}
-						break;
-					}
+			} elseif (self::$alternativeLanguageKey !== '' && isset(self::$LOCAL_LANG[$extensionName][self::$alternativeLanguageKey][$key])) {
+				$value = self::$LOCAL_LANG[$extensionName][self::$alternativeLanguageKey][$key];
+				if (isset(self::$LOCAL_LANG_charset[$extensionName][self::$alternativeLanguageKey][$key])) {
+					$value = self::convertCharset($value, self::$LOCAL_LANG_charset[$extensionName][self::$alternativeLanguageKey][$key]);
 				}
-			}
-			if ($value === NULL && !empty(self::$LOCAL_LANG[$extensionName]['default'][$key][0]['target'])) {
-					// Default language translation for key exists
-					// No charset conversion because default is English and thereby ASCII
-				$value = self::$LOCAL_LANG[$extensionName]['default'][$key][0]['target'];
+			} elseif (isset(self::$LOCAL_LANG[$extensionName]['default'][$key])) {
+				$value = self::$LOCAL_LANG[$extensionName]['default'][$key]; // No charset conversion because default is english and thereby ASCII
 			}
 		}
 		if (is_array($arguments) && $value !== NULL) {
@@ -128,8 +116,7 @@ class Tx_Extbase_Utility_Localization {
 	 */
 	static protected function translateFileReference($key) {
 		if (TYPO3_MODE === 'FE') {
-			$value = $GLOBALS['TSFE']->sL($key);
-			return $value !== FALSE ? $value : NULL;
+			return $GLOBALS['TSFE']->sL($key);
 		} elseif (is_object($GLOBALS['LANG'])) {
 			$value = $GLOBALS['LANG']->sL($key);
 			return $value !== '' ? $value : NULL;
@@ -142,7 +129,6 @@ class Tx_Extbase_Utility_Localization {
 	 * Loads local-language values by looking for a "locallang.php" (or "locallang.xml") file in the plugin resources directory and if found includes it.
 	 * Also locallang values set in the TypoScript property "_LOCAL_LANG" are merged onto the values found in the "locallang.php" file.
 	 *
-	 * @param string $extensionName
 	 * @return void
 	 * @author Christopher Hlubek <hlubek@networkteam.com>
 	 * @author Bastian Waidelich <bastian@typo3.org>
@@ -157,11 +143,9 @@ class Tx_Extbase_Utility_Localization {
 
 		$renderCharset = (TYPO3_MODE === 'FE' ? $GLOBALS['TSFE']->renderCharset : $GLOBALS['LANG']->charSet);
 		self::$LOCAL_LANG[$extensionName] = t3lib_div::readLLfile($locallangPathAndFilename, self::$languageKey, $renderCharset);
-		foreach (self::$alternativeLanguageKeys as $language) {
-			$tempLL = t3lib_div::readLLfile($locallangPathAndFilename, $language, $renderCharset);
-			if (self::$languageKey !== 'default' && isset($tempLL[$language])) {
-				self::$LOCAL_LANG[$extensionName][$language] = $tempLL[$language];
-			}
+		if (self::$alternativeLanguageKey !== '') {
+			$alternativeLocalLang = t3lib_div::readLLfile($locallangPathAndFilename, self::$alternativeLanguageKey);
+			self::$LOCAL_LANG[$extensionName] = array_merge(self::$LOCAL_LANG[$extensionName], $alternativeLocalLang);
 		}
 		self::loadTypoScriptLabels($extensionName);
 	}
@@ -176,12 +160,12 @@ class Tx_Extbase_Utility_Localization {
 	 */
 	protected function setLanguageKeys() {
 		self::$languageKey = 'default';
-		self::$alternativeLanguageKeys = array();
+		self::$alternativeLanguageKey = '';
 		if (TYPO3_MODE === 'FE') {
 			if (isset($GLOBALS['TSFE']->config['config']['language'])) {
 				self::$languageKey = $GLOBALS['TSFE']->config['config']['language'];
 				if (isset($GLOBALS['TSFE']->config['config']['language_alt'])) {
-					self::$alternativeLanguageKeys[] = $GLOBALS['TSFE']->config['config']['language_alt'];
+					self::$alternativeLanguageKey = $GLOBALS['TSFE']->config['config']['language_alt'];
 				}
 			}
 		} elseif (strlen($GLOBALS['BE_USER']->uc['lang']) > 0) {
@@ -194,7 +178,6 @@ class Tx_Extbase_Utility_Localization {
 	 * TS locallang labels have to be configured like:
 	 * plugin.tx_myextension._LOCAL_LANG.languageKey.key = value
 	 *
-	 * @param string $extensionName
 	 * @return void
 	 * @author Christopher Hlubek <hlubek@networkteam.com>
 	 * @author Bastian Waidelich <bastian@typo3.org>
@@ -210,9 +193,9 @@ class Tx_Extbase_Utility_Localization {
 			if (!(is_array($labels) && isset(self::$LOCAL_LANG[$extensionName][$languageKey]))) {
 				continue;
 			}
-			foreach ($labels as $labelKey => $labelValue) {
+			foreach($labels as $labelKey => $labelValue) {
 				if (is_string($labelValue)) {
-					self::$LOCAL_LANG[$extensionName][$languageKey][$labelKey][0]['target'] = $labelValue;
+					self::$LOCAL_LANG[$extensionName][$languageKey][$labelKey] = $labelValue;
 						// For labels coming from the TypoScript (database) the charset is assumed to be "forceCharset" and if that is not set, assumed to be that of the individual system languages
 					if (isset($GLOBALS['TYPO3_CONF_VARS']['BE']['forceCharset']) && strlen($GLOBALS['TYPO3_CONF_VARS']['BE']['forceCharset']) > 0) {
 						self::$LOCAL_LANG_charset[$extensionName][$languageKey][$labelKey] = $GLOBALS['TYPO3_CONF_VARS']['BE']['forceCharset'];
@@ -223,9 +206,7 @@ class Tx_Extbase_Utility_Localization {
 					}
 				} elseif (is_array($labelValue)) {
 					$labelValue = self::flattenTypoScriptLabelArray($labelValue, $labelKey);
-					foreach ($labelValue as $key => $value) {
-						self::$LOCAL_LANG[$extensionName][$languageKey][$key][0]['target'] = $value;
-					}
+					self::$LOCAL_LANG[$extensionName][$languageKey] = array_merge(self::$LOCAL_LANG[$extensionName][$languageKey], $labelValue);
 				}
 			}
 		}
@@ -248,6 +229,7 @@ class Tx_Extbase_Utility_Localization {
 			if (!empty($parentKey)) {
 				$key = $parentKey . '.' . $key;
 			}
+
 			if (is_array($labelValue)) {
 				$labelValue = self::flattenTypoScriptLabelArray($labelValue, $key);
 				$result = array_merge($result, $labelValue);
